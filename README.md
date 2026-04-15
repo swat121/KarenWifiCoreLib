@@ -99,7 +99,10 @@ void loop() {
 
 ## Examples
 
-- [`examples/BasicStaConnection`](examples/BasicStaConnection) — STA mode with multi-network fallback and status printing
+| Example | Description |
+|---------|-------------|
+| [`examples/BasicStaConnection`](examples/BasicStaConnection) | STA mode with multi-network fallback and status printing |
+| [`examples/ModeSwitchFreeRTOS`](examples/ModeSwitchFreeRTOS) | Two FreeRTOS tasks: WiFiTask runs the state machine, ButtonTask cycles modes (STA → AP → AP+STA → OFF) via BOOT button |
 
 ## License
 
