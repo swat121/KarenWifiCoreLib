@@ -84,7 +84,7 @@ public:
   void setConnectTimeoutMs(unsigned long ms) { _connectTimeoutMs = ms; }
   void setReconnectDelayMs(unsigned long ms) { _reconnectDelayMs = ms; }
   void setRetryAfterErrorMs(unsigned long ms) { _retryAfterError = ms; }
-  void setHostname(const char *hostname) { _hostname = hostname; }
+  void setHostname(const char *hostname) { _hostname = hostname ? hostname : ""; }
 
   void onConnected(std::function<void()> cb) { _onConnected = cb; }
   void onDisconnected(std::function<void()> cb) { _onDisconnected = cb; }
@@ -119,7 +119,7 @@ private:
   bool _apRunning = false;
   bool _pendingModeReset = false;
 
-  const char *_hostname = nullptr;
+  String _hostname;
 
   std::function<void()> _onConnected;
   std::function<void()> _onDisconnected;
@@ -127,5 +127,6 @@ private:
 
   void startStaConnectSequence();
   void tryNextNetwork();
+  void loadStaCredentials(const WifiStaCredentials *networks, size_t count);
   void log(const char *fmt, ...) const;
 };

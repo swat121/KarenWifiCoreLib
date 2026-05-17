@@ -1,18 +1,21 @@
 {
   "name": "KarenWiFiCore",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Non-blocking WiFi STA/AP manager for ESP32 with multi-network fallback, auto-reconnect, callbacks and configurable timeouts.",
   "keywords": ["wifi", "esp32", "sta", "ap", "reconnect", "arduino"],
+  "license": "MIT",
+  "headers": "KarenWiFiCore.h",
   "authors": {
     "name": "Denis Kuschovyi",
-    "url": "https://github.com/deniskuschovyi"
+    "url": "https://github.com/swat121"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/deniskuschovyi/KarenWiFiCore"
+    "url": "https://github.com/swat121/KarenWiFiCore"
   },
   "frameworks": ["arduino"],
   "platforms": ["espressif32"],
+  "examples": ["examples/*/src/*.cpp"],
   "build": {
     "srcDir": "src"
   }

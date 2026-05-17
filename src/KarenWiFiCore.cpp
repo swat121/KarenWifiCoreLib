@@ -45,7 +45,12 @@ void KarenWiFiCore::beginSta(const WifiStaCredentials *networks, size_t count, b
   WiFi.persistent(false);
   WiFi.setAutoReconnect(false);
 
-  if (keepApIfRunning)
+  // Keep AP only if the caller asked AND we actually have an AP running.
+  // Without the _apRunning check we would force WIFI_AP_STA with an empty AP,
+  // which is a meaningless mode that wastes power.
+  const bool keepAp = keepApIfRunning && _apRunning;
+
+  if (keepAp)
   {
     WiFi.mode(WIFI_AP_STA);
     _mode = WifiMode::AP_STA;
@@ -54,13 +59,22 @@ void KarenWiFiCore::beginSta(const WifiStaCredentials *networks, size_t count, b
   {
     WiFi.mode(WIFI_STA);
     _mode = WifiMode::STA_ONLY;
+    // Switching to STA-only tears down the AP, keep the flag in sync.
+    _apRunning = false;
   }
 
-  if (_hostname)
+  if (_hostname.length() > 0)
   {
-    WiFi.setHostname(_hostname);
+    WiFi.setHostname(_hostname.c_str());
   }
 
+  loadStaCredentials(networks, count);
+
+  log("beginSta: %d network(s) loaded", (int)_netCount);
+}
+
+void KarenWiFiCore::loadStaCredentials(const WifiStaCredentials *networks, size_t count)
+{
   _netCount = min(count, (size_t)MAX_NETWORKS);
   for (size_t i = 0; i < _netCount; ++i)
   {
@@ -72,8 +86,6 @@ void KarenWiFiCore::beginSta(const WifiStaCredentials *networks, size_t count, b
   _lastErrorTime = 0;
   _pendingModeReset = false;
   _state = WifiState::IDLE;
-
-  log("beginSta: %d network(s) loaded", (int)_netCount);
 }
 
 void KarenWiFiCore::beginAP(const WifiApConfig &cfg)
@@ -103,10 +115,16 @@ void KarenWiFiCore::beginAP(const WifiApConfig &cfg)
 
 void KarenWiFiCore::beginApSta(const WifiStaCredentials *networks, size_t count, const WifiApConfig &apCfg)
 {
+  // Do AP+STA setup in one shot. We intentionally don't delegate the STA part
+  // to beginSta(): that would call WiFi.mode()/WiFi.disconnect() a second time
+  // right after softAP(), which on some ESP-IDF builds restarts the AP we just
+  // brought up.
+  WiFi.persistent(false);
+  WiFi.setAutoReconnect(false);
   WiFi.mode(WIFI_AP_STA);
   _mode = WifiMode::AP_STA;
 
-  bool ok = WiFi.softAP(
+  const bool ok = WiFi.softAP(
       apCfg.ssid,
       apCfg.password[0] != '\0' ? apCfg.password : nullptr,
       apCfg.channel,
@@ -124,7 +142,13 @@ void KarenWiFiCore::beginApSta(const WifiStaCredentials *networks, size_t count,
   _apRunning = true;
   log("beginApSta: AP started, IP=%s", WiFi.softAPIP().toString().c_str());
 
-  beginSta(networks, count, true);
+  if (_hostname.length() > 0)
+  {
+    WiFi.setHostname(_hostname.c_str());
+  }
+
+  loadStaCredentials(networks, count);
+  log("beginApSta: %d STA network(s) loaded", (int)_netCount);
 }
 
 void KarenWiFiCore::stop()
@@ -146,9 +170,15 @@ void KarenWiFiCore::stop()
 
 bool KarenWiFiCore::isStaConnected() const
 {
-  return (WiFi.getMode() & WIFI_MODE_STA) && WiFi.status() == WL_CONNECTED;
+  wifi_mode_t m = WiFi.getMode();
+  return (m == WIFI_STA || m == WIFI_AP_STA) && WiFi.status() == WL_CONNECTED;
 }
 
+// NOTE: this is a BLOCKING scan — WiFi.scanNetworks() without the async flag
+// stalls the calling task for ~2-4 seconds while the radio sweeps every
+// channel. The rest of the library is non-blocking by design, so call this
+// only from setup() or from a dedicated task; do NOT call it from a hot
+// loop(). Async scan + polling can be added later if needed.
 void KarenWiFiCore::scanNetworks()
 {
   log("scanNetworks: Starting scan");
